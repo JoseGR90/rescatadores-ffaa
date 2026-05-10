@@ -56,6 +56,13 @@ body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);min-
 .sb-month:hover{background:rgba(255,255,255,0.06);color:#fff;}
 .sb-month.active{background:var(--rojo);color:#fff;font-weight:700;}
 .sb-month .yr{font-size:10px;background:rgba(255,255,255,0.12);padding:1px 5px;border-radius:3px;}
+.sb-year-header{display:flex;align-items:center;justify-content:space-between;padding:6px 12px;font-size:11px;font-weight:700;letter-spacing:1px;color:#555;cursor:pointer;transition:color .15s;text-transform:uppercase;}
+.sb-year-header:hover{color:#aaa;}
+.sb-year-header.has-active{color:var(--amari);}
+.vis-btn{background:none;border:none;cursor:pointer;font-size:12px;padding:1px 3px;opacity:.5;flex-shrink:0;line-height:1;}
+.vis-btn:hover{opacity:1;}
+.sb-month{display:flex;align-items:center;justify-content:space-between;}
+.sb-month>span{flex:1;min-width:0;}
 .sb-footer{padding:12px 18px;border-top:1px solid rgba(255,255,255,0.06);font-size:11px;color:#444;display:flex;align-items:center;justify-content:space-between;}
 .online-dot{width:7px;height:7px;background:var(--verde2);border-radius:50%;}
 
@@ -161,10 +168,7 @@ td.cd.drag-sel{outline:2px solid var(--amari);outline-offset:-2px;opacity:.85;}
 .c-CURSO{background:#7b4fa8!important;color:#fff}.c-MARCH{background:#2c6b3a!important;color:#fff}
 
 /* Copy row btn */
-.copy-btn{display:none;cursor:pointer;background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:1px 5px;font-size:9px;color:var(--text3);font-family:inherit;margin-left:4px;}
-.is-editor .copy-btn{display:none;}
-.is-editor table.cq tbody tr:hover .copy-btn{display:inline;}
-.copy-btn:hover{background:var(--amari);color:#111;border-color:var(--amari);}
+
 
 /* PICKER */
 .picker{position:fixed;background:var(--surface);border-radius:10px;box-shadow:var(--shadow-lg);border:1px solid var(--border);padding:12px;z-index:1000;display:none;width:290px;}
@@ -712,12 +716,59 @@ async function loadAll(){
 }
 
 // ══ SIDEBAR MONTHS ════════════════════════════════════════
+// Track which years are expanded in sidebar
+let expandedYears = new Set();
+
 function renderSidebarMonths(){
-  document.getElementById('sb-months').innerHTML=MESES.map(mo=>
-    `<div class="sb-month${mo.id===curMesId&&curView==='cuadrante'?' active':''}"
-      onclick="gotoMonth(${mo.id},${mo.anio},${mo.mes})">
-      ${mo.nombre}<span class="yr">${String(mo.anio).slice(-2)}</span>
-    </div>`).join('');
+  const years = [...new Set(MESES.map(m=>m.anio))].sort((a,b)=>b-a);
+  if(curY) expandedYears.add(curY);
+  if(expandedYears.size === 0 && years.length) expandedYears.add(years[0]);
+
+  // Visualizers only see visible months (visible !== false)
+  // Editors see all, with toggle
+  let h = '';
+  years.forEach(yr => {
+    const isOpen = expandedYears.has(yr);
+    const monthsOfYear = MESES.filter(m => m.anio === yr);
+    const visibleMonths = isEditor ? monthsOfYear : monthsOfYear.filter(m => m.visible !== false);
+    if(!isEditor && visibleMonths.length === 0) return; // hide year if no visible months
+    const hasActive = monthsOfYear.some(m => m.id === curMesId && curView === 'cuadrante');
+    h += `<div class="sb-year-header${hasActive?' has-active':''}" onclick="toggleYear(${yr})">
+      <span>${yr}</span>
+      <span style="font-size:10px;opacity:.6">${isOpen?'▲':'▼'}</span>
+    </div>`;
+    if(isOpen){
+      (isEditor ? monthsOfYear : visibleMonths).forEach(mo => {
+        const isHidden = mo.visible === false;
+        const isActive = mo.id === curMesId && curView === 'cuadrante';
+        h += `<div class="sb-month${isActive?' active':''}${isHidden?' sb-month-hidden':''}"
+          onclick="gotoMonth(${mo.id},${mo.anio},${mo.mes})"
+          style="${isHidden?'opacity:.4;':''}">
+          <span>${mo.nombre}<span class="yr">${String(mo.anio).slice(-2)}</span></span>
+          ${isEditor ? `<button class="vis-btn" onclick="toggleMonthVisibility(event,${mo.id},${!isHidden})" title="${isHidden?'Mostrar a visualizadores':'Ocultar a visualizadores'}">
+            ${isHidden?'👁️':'🔒'}
+          </button>` : ''}
+        </div>`;
+      });
+    }
+  });
+  document.getElementById('sb-months').innerHTML = h;
+}
+
+async function toggleMonthVisibility(e, mesId, makeVisible){
+  e.stopPropagation();
+  const {error} = await sb.from('meses').update({visible: makeVisible}).eq('id', mesId);
+  if(error){ showToast('❌ ' + error.message); return; }
+  const m = MESES.find(x => x.id === mesId);
+  if(m) m.visible = makeVisible;
+  renderSidebarMonths();
+  showToast(makeVisible ? '👁️ Mes visible para todos' : '🔒 Mes oculto para visualizadores');
+}
+
+function toggleYear(yr){
+  if(expandedYears.has(yr)) expandedYears.delete(yr);
+  else expandedYears.add(yr);
+  renderSidebarMonths();
 }
 function gotoMonth(id,y,m){curMesId=id;curY=y;curM=m;showView('cuadrante');}
 
@@ -749,9 +800,8 @@ function renderCuadrante(){
   let body='';
   active.forEach(p=>{
     const cc=capCls(p.capacidad);
-    const copyBtn=`<button class="copy-btn editor-visible" onclick="copyRow(event,${p.id})" title="Copiar fila al mes siguiente">📋</button>`;
     let row=`<tr>
-      <td class="cn">${p.nombre}${copyBtn}</td>
+      <td class="cn">${p.nombre}</td>
       <td class="ce">${p.empleo}</td>
       <td class="cc"><span class="${cc}">${p.capacidad}</span></td>`;
     for(let d=1;d<=days;d++){
@@ -773,34 +823,68 @@ function renderCuadrante(){
 }
 
 // ══ DRAG SELECTION ════════════════════════════════════════
-document.addEventListener('mouseup',()=>{
-  if(isDragging&&selCells.length>1) openPickerMulti();
+// ── Drag state ──
+let dragWasDragging = false; // persists through click event
+
+document.addEventListener('mouseup', e => {
+  if(!isDragging) return;
+  dragWasDragging = true; // flag so cellClick knows to ignore
+  if(selCells.length > 1) {
+    openPickerMulti();
+  } else if(selCells.length === 1) {
+    // single cell drag = treat as click
+    dragWasDragging = false;
+    const [pid,day] = selCells[0].split('-').map(Number);
+    const p = PERSONAL.find(x=>x.id===pid);
+    document.getElementById('picker-who').innerHTML=`<strong>${p?.nombre||''}</strong> · Día ${day} de ${MN[curM]}`;
+    document.getElementById('picker-multi').classList.remove('show');
+    buildPickerGrid();
+    // position near the cell
+    const cell = document.querySelector(`td[data-pid="${pid}"][data-day="${day}"]`);
+    if(cell) {
+      const r = cell.getBoundingClientRect();
+      let left = r.left+window.scrollX, top = r.bottom+window.scrollY+4;
+      if(left+290>window.innerWidth-12) left=window.innerWidth-302;
+      if(top+320>window.innerHeight+window.scrollY) top=r.top+window.scrollY-324;
+      const pk = document.getElementById('picker');
+      pk.style.left=left+'px'; pk.style.top=top+'px';
+      pk.classList.add('open');
+    }
+  }
   isDragging=false; dragPid=null;
+  // reset dragWasDragging after click event fires
+  setTimeout(()=>{ dragWasDragging=false; }, 50);
 });
 
-function dragStart(e,pid,day){
+function dragStart(e, pid, day) {
   if(!isEditor) return;
   e.preventDefault();
-  selCells=[]; dragPid=pid; isDragging=false;
+  selCells = [`${pid}-${day}`];
+  dragPid = pid; isDragging = false; dragWasDragging = false;
   document.querySelectorAll('td.cd.drag-sel').forEach(t=>t.classList.remove('drag-sel'));
+  document.querySelector(`td[data-pid="${pid}"][data-day="${day}"]`)?.classList.add('drag-sel');
 }
-function dragMove(e,pid,day){
-  if(e.buttons!==1||dragPid===null||pid!==dragPid)return;
-  isDragging=true;
-  const key=`${pid}-${day}`;
-  if(!selCells.includes(key)){
+
+function dragMove(e, pid, day) {
+  if(e.buttons !== 1 || dragPid === null || pid !== dragPid) return;
+  isDragging = true;
+  const key = `${pid}-${day}`;
+  if(!selCells.includes(key)) {
     selCells.push(key);
     document.querySelector(`td[data-pid="${pid}"][data-day="${day}"]`)?.classList.add('drag-sel');
   }
 }
-function dragEnd(e,pid,day){dragPid=null;}
 
-function cellClick(e,pid,day){
-  if(!isEditor){showToast('⚠️ Inicia sesión para editar el cuadrante');return;}
-  if(isDragging)return;
+function dragEnd(e, pid, day) {
+  // handled by document mouseup
+}
+
+function cellClick(e, pid, day) {
+  if(!isEditor){ showToast('⚠️ Inicia sesión para editar el cuadrante'); return; }
+  if(dragWasDragging) return; // drag already handled
   document.querySelectorAll('td.cd.drag-sel').forEach(t=>t.classList.remove('drag-sel'));
-  selCells=[`${pid}-${day}`];
-  const p=PERSONAL.find(x=>x.id===pid);
+  selCells = [`${pid}-${day}`];
+  const p = PERSONAL.find(x=>x.id===pid);
   document.getElementById('picker-who').innerHTML=`<strong>${p?.nombre||''}</strong> · Día ${day} de ${MN[curM]}`;
   document.getElementById('picker-multi').classList.remove('show');
   buildPickerGrid();
@@ -873,27 +957,6 @@ document.addEventListener('click',e=>{
     selCells=[]; isDragging=false; dragPid=null;
   }
 });
-
-// ══ COPY ROW ══════════════════════════════════════════════
-async function copyRow(e,pid){
-  e.stopPropagation();
-  const nextMes=MESES[MESES.findIndex(x=>x.id===curMesId)+1];
-  if(!nextMes){showToast('⚠️ No hay mes siguiente. Crea uno primero.');return;}
-  const rows=ACTDB.filter(a=>a.persona_id===pid&&a.mes_id===curMesId&&!NO_COPY.includes(a.codigo||''));
-  if(!rows.length){showToast('ℹ️ No hay actividad para copiar en esta fila.');return;}
-  const {error}=await sb.from('actividad').upsert(
-    rows.map(r=>({persona_id:pid,mes_id:nextMes.id,dia:r.dia,codigo:r.codigo})),
-    {onConflict:'persona_id,mes_id,dia'}
-  );
-  if(error){showToast('❌ '+error.message);return;}
-  rows.forEach(r=>{
-    const u={persona_id:pid,mes_id:nextMes.id,dia:r.dia,codigo:r.codigo};
-    const idx=ACTDB.findIndex(a=>a.persona_id===u.persona_id&&a.mes_id===u.mes_id&&a.dia===u.dia);
-    if(idx>=0) ACTDB[idx]=u; else ACTDB.push(u);
-  });
-  const p=PERSONAL.find(x=>x.id===pid);
-  showToast(`✓ ${p?.nombre} copiado a ${nextMes.nombre} ${nextMes.anio}`);
-}
 
 // ══ COPY MONTH ════════════════════════════════════════════
 function openCopyMonthModal(){
@@ -1152,7 +1215,7 @@ async function addMonth(){
   const m=parseInt(document.getElementById('f-mes').value);
   const y=parseInt(document.getElementById('f-anio').value);
   if(MESES.find(x=>x.anio===y&&x.mes===m)){showToast('⚠️ Este mes ya existe');return;}
-  const {data,error}=await sb.from('meses').insert({nombre:MN[m],anio:y,mes:m}).select().single();
+  const {data,error}=await sb.from('meses').insert({nombre:MN[m],anio:y,mes:m,visible:true}).select().single();
   if(error){showToast('❌ '+error.message);return;}
   MESES.push(data);
   MESES.sort((a,b)=>a.anio*100+a.mes-(b.anio*100+b.mes));
