@@ -484,8 +484,8 @@ input.date-inline{border:1px solid var(--azul2);border-radius:4px;padding:2px 7p
       <div class="form-row"><label>Apellido *</label><input type="text" id="f-nombre" placeholder="GARCIA"></div>
       <div class="form-row"><label>Empleo *</label>
         <select id="f-empleo"><option value="">— Seleccionar —</option>
-          <option>CAP</option><option>TTE</option><option>SUBT</option><option>BGD</option>
-          <option>SGT 1º</option><option>SGTO</option><option>CBO 1º</option><option>CBO</option><option>SDO</option>
+          <option>CAP</option><option>TTE</option><option>SUBT</option><option>BGDA</option>
+          <option>SGTO1</option><option>SGTO</option><option>CBMY</option><option>CB1</option><option>CB</option><option>SDO</option>
         </select>
       </div>
     </div>
@@ -524,8 +524,8 @@ input.date-inline{border:1px solid var(--azul2);border-radius:4px;padding:2px 7p
     <div class="form-2col">
       <div class="form-row"><label>Apellido</label><input type="text" id="edit-nombre"></div>
       <div class="form-row"><label>Empleo</label>
-        <select id="edit-empleo"><option>CAP</option><option>TTE</option><option>SUBT</option><option>BGD</option>
-          <option>SGT 1º</option><option>SGTO</option><option>CBO 1º</option><option>CBO</option><option>SDO</option></select>
+        <select id="edit-empleo"><option>CAP</option><option>TTE</option><option>SUBT</option><option>BGDA</option>
+          <option>SGTO1</option><option>SGTO</option><option>CBMY</option><option>CB1</option><option>CB</option><option>SDO</option></select>
       </div>
     </div>
     <div class="form-2col">
@@ -624,7 +624,7 @@ let expandedYears=new Set();
 const today=new Date();
 const MN=['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const DW=['D','L','M','X','J','V','S'];
-const EO={CAP:1,TTE:2,SUBT:3,BGD:4,'SGT 1º':5,SGTO:6,'CBO 1º':7,CBO:8,SDO:9};
+const EO={CAP:1,TTE:2,SUBT:3,BGDA:4,BGD:4,SGTO1:5,'SGT 1º':5,'SGTO 1':5,SGTO:6,CBMY:7,'CBO MY':7,CB1:8,'CBO 1º':8,'CB 1':8,CB:9,CBO:9,SDO:10};
 const NO_COPY=['POV','AP','L',''];
 
 const CODES=[
