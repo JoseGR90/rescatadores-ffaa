@@ -464,6 +464,14 @@ input.date-inline{border:1px solid var(--azul2);border-radius:4px;padding:2px 7p
 <div class="picker" id="picker">
   <div class="picker-ttl">Seleccionar actividad</div>
   <div class="picker-who" id="picker-who"></div>
+  <div id="picker-paste-row" style="display:none;margin-bottom:8px">
+    <button id="picker-paste-btn" onclick="pasteFromPicker()"
+      style="width:100%;padding:8px;border-radius:5px;border:2px solid var(--azul2);
+             background:var(--surface2);cursor:pointer;font-family:inherit;font-size:12px;
+             font-weight:700;color:var(--azul2);text-align:left;display:flex;align-items:center;gap:8px">
+      <span>📌</span><span id="picker-paste-label2">Pegar</span>
+    </button>
+  </div>
   <div class="picker-multi" id="picker-multi"></div>
   <div class="picker-grid" id="picker-grid"></div>
   <div style="margin-bottom:8px;display:flex;align-items:center;gap:8px">
@@ -493,6 +501,20 @@ input.date-inline{border:1px solid var(--azul2);border-radius:4px;padding:2px 7p
   <div style="font-size:9px;color:var(--text4);margin-top:6px;line-height:1.6;padding:0 2px">
     <strong style="color:var(--text3)">Atajos:</strong>
     A·AF=f·R=áreas·G·T·M·B·V=vac·L·P=AP·N·ESC=cerrar·DEL=borrar
+  </div>
+</div>
+
+<!-- CONTEXT MENU -->
+<div id="ctx-menu" style="position:fixed;display:none;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-lg);z-index:2000;min-width:160px;padding:4px 0;overflow:hidden">
+  <div id="ctx-copy" onclick="ctxCopy()" style="padding:9px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:10px;color:var(--text)">
+    <span>📋</span><span>Copiar actividad</span>
+  </div>
+  <div id="ctx-paste" onclick="ctxPaste()" style="padding:9px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:10px;color:var(--text);display:none">
+    <span>📌</span><span id="ctx-paste-label">Pegar</span>
+  </div>
+  <div style="height:1px;background:var(--border);margin:2px 0"></div>
+  <div onclick="ctxClear()" style="padding:9px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:10px;color:var(--rojo)">
+    <span>✕</span><span>Borrar celda</span>
   </div>
 </div>
 
@@ -643,7 +665,7 @@ const sb=supabase.createClient(SB_URL,SB_KEY);
 // ── State ──────────────────────────────────────────────
 let PERSONAL=[],MESES=[],ACTDB=[],CADDB=[];
 let curMesId=null,curY=2026,curM=5;
-let selCells=[],_dragActive=false,_dragPid=null,_dragStartKey=null,_pickerJustOpened=false,_pendingColor=null,_mobileWeek=0;
+let selCells=[],_dragActive=false,_dragPid=null,_dragStartKey=null,_pickerJustOpened=false,_pendingColor=null,_mobileWeek=0,_clipboard=null;
 let persFilter='activos',curView='dashboard',isEditor=false,_viewerOriginMesId=null;
 let expandedYears=new Set();
 const today=new Date();
@@ -1043,6 +1065,7 @@ function attachDrag(tbl){
       document.getElementById('picker-custom-input').value='';
       _pendingColor=null;
       clearPendingColor();
+      updatePickerPasteRow();
       _pickerJustOpened=true;
       document.getElementById('picker').classList.add('open');
     }
@@ -1052,6 +1075,87 @@ function attachDrag(tbl){
     _dragPid=null; _dragActive=false; selCells=[];
     document.querySelectorAll('td.cd.drag-sel').forEach(t=>t.classList.remove('drag-sel'));
   });
+
+  // Right-click context menu
+  tbl.addEventListener('contextmenu',e=>{
+    const td=e.target.closest('td.cd');
+    if(!td)return;
+    e.preventDefault();
+    const pid=parseInt(td.dataset.pid);
+    const day=parseInt(td.dataset.day);
+    const act=ACTDB.find(a=>a.persona_id===pid&&a.mes_id===curMesId&&a.dia===day);
+    // Store which cell was right-clicked
+    _ctxCell={pid,day};
+    // Show/hide copy option based on whether cell has content
+    const copyEl=document.getElementById('ctx-copy');
+    copyEl.style.display=act?.codigo?'flex':'none';
+    // Show/hide paste option based on clipboard
+    const pasteEl=document.getElementById('ctx-paste');
+    if(_clipboard){
+      pasteEl.style.display='flex';
+      const ci=CODES.find(c=>c.code===_clipboard.codigo);
+      const colorDot=_clipboard.color
+        ?`<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${_clipboard.color};margin-right:4px"></span>`:'';
+      document.getElementById('ctx-paste-label').innerHTML=
+        `${colorDot}Pegar "${_clipboard.codigo}"`;
+    } else {
+      pasteEl.style.display='none';
+    }
+    // Show borrar only if cell has content
+    const clearEl=document.getElementById('ctx-menu').children[3];
+    clearEl.style.display=act?.codigo?'flex':'none';
+    // If no options visible except paste, still show menu
+    if(!act?.codigo&&!_clipboard)return;
+    // Position menu
+    let left=e.clientX, top=e.clientY;
+    if(left+180>window.innerWidth)  left=window.innerWidth-184;
+    if(top+150>window.innerHeight)  top=window.innerHeight-154;
+    const menu=document.getElementById('ctx-menu');
+    menu.style.left=left+'px'; menu.style.top=top+'px';
+    menu.style.display='block';
+    _ctxCell={pid,day};
+  });
+}
+
+let _ctxCell=null;
+
+function ctxCopy(){
+  if(!_ctxCell)return;
+  const{pid,day}=_ctxCell;
+  const act=ACTDB.find(a=>a.persona_id===pid&&a.mes_id===curMesId&&a.dia===day);
+  if(!act?.codigo){closeCtxMenu();return;}
+  _clipboard={codigo:act.codigo,color:act.color||null};
+  showToast(`📋 Copiado: "${act.codigo}"`);
+  closeCtxMenu();
+}
+
+async function ctxPaste(){
+  if(!_ctxCell||!_clipboard)return;
+  const{pid,day}=_ctxCell;
+  closeCtxMenu();
+  const upsert={persona_id:pid,mes_id:curMesId,dia:day,
+    codigo:_clipboard.codigo,color:_clipboard.color||null};
+  const{error}=await sb.from('actividad').upsert(upsert,{onConflict:'persona_id,mes_id,dia'});
+  if(error){showToast('❌ '+error.message);return;}
+  const idx=ACTDB.findIndex(a=>a.persona_id===pid&&a.mes_id===curMesId&&a.dia===day);
+  if(idx>=0){ACTDB[idx].codigo=_clipboard.codigo;ACTDB[idx].color=_clipboard.color||null;}
+  else ACTDB.push({...upsert});
+  renderCuadrante();
+  showToast(`📌 Pegado: "${_clipboard.codigo}"`);
+}
+
+async function ctxClear(){
+  if(!_ctxCell)return;
+  const{pid,day}=_ctxCell;
+  closeCtxMenu();
+  await sb.from('actividad').delete().match({persona_id:pid,mes_id:curMesId,dia:day});
+  ACTDB=ACTDB.filter(a=>!(a.persona_id===pid&&a.mes_id===curMesId&&a.dia===day));
+  renderCuadrante();
+}
+
+function closeCtxMenu(){
+  document.getElementById('ctx-menu').style.display='none';
+  _ctxCell=null;
 }
 
 function addSel(td){
@@ -1075,6 +1179,42 @@ function clearPendingColor(){
   if(preview) preview.textContent = 'Sin color personalizado';
   const inp = document.getElementById('picker-color-custom');
   if(inp) inp.value = '#888888';
+}
+
+function updatePickerPasteRow(){
+  const row=document.getElementById('picker-paste-row');
+  if(!row)return;
+  if(_clipboard){
+    row.style.display='block';
+    const ci=CODES.find(c=>c.code===_clipboard.codigo);
+    const colorDot=_clipboard.color
+      ?`<span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:${_clipboard.color};flex-shrink:0"></span>`
+      :(ci?`<span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:${ci.bg};flex-shrink:0"></span>`:'');
+    document.getElementById('picker-paste-label2').innerHTML=
+      `${colorDot} Pegar "${_clipboard.codigo}"`;
+  } else {
+    row.style.display='none';
+  }
+}
+
+async function pasteFromPicker(){
+  if(!_clipboard||!selCells.length)return;
+  document.getElementById('picker').classList.remove('open');
+  const upserts=selCells.map(key=>{
+    const[pid,day]=key.split('-').map(Number);
+    return{persona_id:pid,mes_id:curMesId,dia:day,
+      codigo:_clipboard.codigo,color:_clipboard.color||null};
+  });
+  const{error}=await sb.from('actividad').upsert(upserts,{onConflict:'persona_id,mes_id,dia'});
+  if(error){showToast('❌ '+error.message);return;}
+  upserts.forEach(u=>{
+    const idx=ACTDB.findIndex(a=>a.persona_id===u.persona_id&&a.mes_id===u.mes_id&&a.dia===u.dia);
+    if(idx>=0){ACTDB[idx].codigo=u.codigo;ACTDB[idx].color=u.color;}
+    else ACTDB.push(u);
+  });
+  selCells=[];
+  renderCuadrante();
+  showToast(`📌 Pegado "${_clipboard.codigo}" en ${upserts.length} celda${upserts.length>1?'s':''}`);
 }
 
 function buildPickerGrid(){
@@ -1101,6 +1241,7 @@ function openPickerMulti(){
   document.getElementById('picker-custom-input').value = '';
   _pendingColor=null;
   clearPendingColor();
+  updatePickerPasteRow();
   pk.classList.add('open');
 }
 
@@ -1146,10 +1287,11 @@ async function clearSelection(){
   selCells=[];renderCuadrante();
 }
 
-// Track mousedown inside picker to prevent closing on click
+// Track mousedown inside picker/ctx-menu to prevent closing on click
 let _mouseDownInPicker = false;
 document.addEventListener('mousedown', e=>{
   _mouseDownInPicker = !!e.target.closest('.picker');
+  if(!e.target.closest('#ctx-menu')) closeCtxMenu();
 });
 document.addEventListener('click', e=>{
   if(_pickerJustOpened){_pickerJustOpened=false;return;}
@@ -1166,7 +1308,7 @@ const KEY_CODES={
   'a':'A','f':'AF','r':'AREAS','g':'GVN',
   't':'T SAR T','m':'T SAR M','b':'BARCO',
   'v':'POV','l':'L','p':'AP','n':'NRF',
-  'Escape':'__close__','Delete':'__clear__','Backspace':'__clear__'
+  'Escape':'__close__','Delete':'__clear__','Backspace':'__clear__','v':'__paste__','V':'__paste__'
 };
 document.addEventListener('keydown',e=>{
   if(!isEditor) return;
@@ -1178,6 +1320,7 @@ document.addEventListener('keydown',e=>{
     const action=KEY_CODES[e.key]||KEY_CODES[e.key.toLowerCase()];
     if(action==='__close__'){pk.classList.remove('open');selCells=[];e.preventDefault();}
     else if(action==='__clear__'){clearSelection();e.preventDefault();}
+    else if(action==='__paste__'){pasteFromPicker();e.preventDefault();}
     else if(action){applyCode(action);e.preventDefault();}
   }
 });
