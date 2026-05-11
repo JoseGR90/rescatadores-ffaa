@@ -466,6 +466,10 @@ input.date-inline{border:1px solid var(--azul2);border-radius:4px;padding:2px 7p
     <button class="btn btn-blue btn-sm" onclick="applyCustomCode()" style="flex-shrink:0">✓</button>
   </div>
   <button class="p-clr" onclick="clearSelection()">✕ Borrar celda(s)</button>
+  <div style="font-size:9px;color:var(--text4);margin-top:6px;line-height:1.6;padding:0 2px">
+    <strong style="color:var(--text3)">Atajos:</strong>
+    A·AF=f·R=áreas·G·T·M·B·V=vac·L·P=AP·N·ESC=cerrar·DEL=borrar
+  </div>
 </div>
 
 <!-- MODALES -->
@@ -861,8 +865,9 @@ function renderCuadrante(){
   h2+=`</tr>`;
   tbl.querySelector('thead').innerHTML=h1+h2;
 
-  // spacer row so first person isn't hidden behind sticky headers
-  let body=`<tr style="height:0"><td colspan="${3+days}" style="padding:0;border:none;height:0"></td></tr>`;
+  // Spacer row so first person isn't hidden behind sticky day-name header
+  // rd header is ~22px tall, so we need that much space
+  let body=`<tr><td colspan="${3+days}" style="padding:0;border:none;height:22px;background:transparent;pointer-events:none"></td></tr>`;
   active.forEach(p=>{
     const cc=capCls(p.capacidad);
     let row=`<tr>
@@ -898,7 +903,8 @@ function attachDrag(tbl){
     if(!isEditor)return;
     const td=e.target.closest('td.cd');
     if(!td)return;
-    // No preventDefault - let click events fire normally
+    e.preventDefault();
+    tbl.setPointerCapture(e.pointerId); // capture so fast drags don't miss events
     _dragActive=false;
     _dragPid=parseInt(td.dataset.pid);
     _dragStartKey=`${td.dataset.pid}-${td.dataset.day}`;
@@ -910,8 +916,8 @@ function attachDrag(tbl){
 
   tbl.addEventListener('pointermove',e=>{
     if(_dragPid===null||e.buttons===0)return;
-    // Need 8px movement to activate drag mode
     if(Math.abs(e.clientX-startX)+Math.abs(e.clientY-startY)<8)return;
+    // elementFromPoint works even with capture
     const el=document.elementFromPoint(e.clientX,e.clientY);
     const td=el?.closest('td.cd');
     if(!td||parseInt(td.dataset.pid)!==_dragPid)return;
@@ -920,6 +926,7 @@ function attachDrag(tbl){
   });
 
   tbl.addEventListener('pointerup',e=>{
+    if(tbl.hasPointerCapture(e.pointerId)) tbl.releasePointerCapture(e.pointerId);
     if(_dragPid===null)return;
     const startKey=_dragStartKey;
     const wasDrag=_dragActive&&selCells.length>1;
@@ -1051,6 +1058,27 @@ document.addEventListener('click',e=>{
     document.getElementById('picker').classList.remove('open');
     document.querySelectorAll('td.cd.drag-sel').forEach(t=>t.classList.remove('drag-sel'));
     selCells=[];
+  }
+});
+
+// Keyboard shortcuts when picker is open
+const KEY_CODES={
+  'a':'A','f':'AF','r':'AREAS','g':'GVN',
+  't':'T SAR T','m':'T SAR M','b':'BARCO',
+  'v':'POV','l':'L','p':'AP','n':'NRF',
+  'Escape':'__close__','Delete':'__clear__','Backspace':'__clear__'
+};
+document.addEventListener('keydown',e=>{
+  if(!isEditor) return;
+  const pk=document.getElementById('picker');
+  const pickerOpen=pk.classList.contains('open');
+  // If typing in an input, ignore
+  if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return;
+  if(pickerOpen){
+    const action=KEY_CODES[e.key]||KEY_CODES[e.key.toLowerCase()];
+    if(action==='__close__'){pk.classList.remove('open');selCells=[];e.preventDefault();}
+    else if(action==='__clear__'){clearSelection();e.preventDefault();}
+    else if(action){applyCode(action);e.preventDefault();}
   }
 });
 
