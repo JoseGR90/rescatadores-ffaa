@@ -800,7 +800,8 @@ async function loadAll(){
     sb.from('caducidades').select('*'),
     sb.from('actividad').select('*'),
   ]);
-  PERSONAL=p.data||[];MESES=m.data||[];CADDB=c.data||[];ACTDB=a.data||[];
+  PERSONAL=(p.data||[]).sort((a,b)=>(EO[a.empleo]||99)-(EO[b.empleo]||99));
+  MESES=m.data||[];CADDB=c.data||[];ACTDB=a.data||[];
   if(MESES.length){
     // Set to closest month to today
     const now=new Date();
@@ -866,6 +867,7 @@ function gotoMonth(id,y,m){curMesId=id;curY=y;curM=m;showView('cuadrante');}
 
 // ── Cuadrante ──────────────────────────────────────────
 function renderCuadrante(){
+  PERSONAL.sort((a,b)=>(EO[a.empleo]||99)-(EO[b.empleo]||99));
   const days=daysIn(curY,curM);
   const active=PERSONAL.filter(p=>p.estado==='ACTIVO');
   const tbl=document.getElementById('cq');
@@ -1169,6 +1171,7 @@ function filterPersonal(f,btn){
   btn.classList.add('active');renderPersonal();
 }
 function renderPersonal(){
+  PERSONAL.sort((a,b)=>(EO[a.empleo]||99)-(EO[b.empleo]||99));
   let data=PERSONAL;
   const s=document.getElementById('search-input')?.value?.toLowerCase()||'';
   if(persFilter==='activos')data=data.filter(p=>p.estado==='ACTIVO');
