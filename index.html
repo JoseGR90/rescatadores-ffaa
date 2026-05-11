@@ -164,7 +164,7 @@ td.ce{padding:0 5px;font-size:10px;font-weight:700;color:var(--text3);text-align
 td.cc{padding:0 4px;font-size:10px;font-weight:700;text-align:center;}
 td.cd{text-align:center;cursor:pointer;font-size:11px;font-weight:800;letter-spacing:.3px;font-family:'Barlow Condensed',sans-serif;min-width:42px;max-width:50px;transition:filter .08s;user-select:none;touch-action:none;}
 td.cd:hover{filter:brightness(.85);}
-td.cd.wk{background:#fef0c0;border-left:1px solid #e8c84020;border-right:1px solid #e8c84020;}
+td.cd.wk{background:#fef0c0!important;border-left:1px solid rgba(232,200,64,.2);border-right:1px solid rgba(232,200,64,.2);}
 td.cd.hc{box-shadow:inset 2px 0 0 var(--amari),inset -2px 0 0 var(--amari);}
 td.cd.drag-sel{outline:2px solid var(--azul3);outline-offset:-2px;opacity:.85;}
 
@@ -276,6 +276,9 @@ input.date-inline{border:1px solid var(--azul2);border-radius:4px;padding:2px 7p
   .form-2col{grid-template-columns:1fr;}.dash-grid{grid-template-columns:1fr!important;}
 }
 @media(min-width:801px){.mob-bar,.bot-nav{display:none!important;}}
+[data-theme="dark"] th.dl.wk{background:#3a2800!important;color:#f5c400!important;font-weight:800;}
+[data-theme="dark"] th.rh-wk{background:#1e1400!important;color:#f5c400!important;}
+[data-theme="dark"] td.cd.wk{background:#1e1600!important;}
 </style>
 </head>
 <body>
@@ -506,14 +509,14 @@ input.date-inline{border:1px solid var(--azul2);border-radius:4px;padding:2px 7p
 
 <!-- CONTEXT MENU -->
 <div id="ctx-menu" style="position:fixed;display:none;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-lg);z-index:2000;min-width:160px;padding:4px 0;overflow:hidden">
-  <div id="ctx-copy" onclick="ctxCopy()" style="padding:9px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:10px;color:var(--text)">
+  <div class="ctx-item" id="ctx-copy" onclick="ctxCopy()" style="padding:9px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:10px;color:var(--text)">
     <span>📋</span><span>Copiar actividad</span>
   </div>
-  <div id="ctx-paste" onclick="ctxPaste()" style="padding:9px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:10px;color:var(--text);display:none">
+  <div class="ctx-item" id="ctx-paste" onclick="ctxPaste()" style="padding:9px 16px;font-size:13px;cursor:pointer;align-items:center;gap:10px;color:var(--text);display:none">
     <span>📌</span><span id="ctx-paste-label">Pegar</span>
   </div>
   <div style="height:1px;background:var(--border);margin:2px 0"></div>
-  <div onclick="ctxClear()" style="padding:9px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:10px;color:var(--rojo)">
+  <div class="ctx-item" id="ctx-clear-btn" onclick="ctxClear()" style="padding:9px 16px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:10px;color:var(--rojo)">
     <span>✕</span><span>Borrar celda</span>
   </div>
 </div>
@@ -1102,8 +1105,7 @@ function attachDrag(tbl){
       pasteEl.style.display='none';
     }
     // Show borrar only if cell has content
-    const clearEl=document.getElementById('ctx-menu').children[3];
-    clearEl.style.display=act?.codigo?'flex':'none';
+    document.getElementById('ctx-clear-btn').style.display=act?.codigo?'flex':'none';
     // If no options visible except paste, still show menu
     if(!act?.codigo&&!_clipboard)return;
     // Position menu
