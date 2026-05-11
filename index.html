@@ -55,7 +55,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);min-
 .sb-month{display:flex;align-items:center;justify-content:space-between;padding:5px 10px;border-radius:4px;font-size:12px;font-weight:500;color:#668;cursor:pointer;transition:all .15s;}
 .sb-month:hover{background:rgba(255,255,255,.06);color:#fff;}
 .sb-month.active{background:var(--azul2);color:#fff;font-weight:700;}
-.sb-month.hidden-month{opacity:.4;}
+.sb-month
 .sb-month .yr{font-size:9px;background:rgba(255,255,255,.1);padding:1px 5px;border-radius:3px;flex-shrink:0;}
 
 .sb-footer{padding:10px 16px;border-top:1px solid rgba(255,255,255,.06);display:flex;align-items:center;justify-content:space-between;}
@@ -157,22 +157,22 @@ th.dl.hoy{background:var(--amari)!important;color:#111!important;font-weight:800
 table.cq tbody tr:nth-child(odd) td{background:var(--row-odd);}
 table.cq tbody tr:nth-child(even) td{background:var(--row-even);}
 table.cq tbody tr:hover td{background:var(--row-hover);}
-table.cq td{border-right:1px solid var(--border);border-bottom:1px solid var(--border);height:30px;padding:0;}
+table.cq td{border-right:1px solid var(--border);border-bottom:1px solid var(--border);height:38px;padding:0;}
 td.cn{padding:0 7px 0 14px;font-weight:700;font-size:12px;color:var(--text);white-space:nowrap;border-right:2px solid var(--border);position:sticky;left:0;z-index:5;background:inherit;}
 td.ce{padding:0 5px;font-size:10px;font-weight:700;color:var(--text3);text-align:center;white-space:nowrap;}
 td.cc{padding:0 4px;font-size:10px;font-weight:700;text-align:center;}
-td.cd{text-align:center;cursor:pointer;font-size:9px;font-weight:800;letter-spacing:.3px;font-family:'Barlow Condensed',sans-serif;min-width:28px;max-width:34px;transition:filter .08s;user-select:none;touch-action:none;}
+td.cd{text-align:center;cursor:pointer;font-size:11px;font-weight:800;letter-spacing:.3px;font-family:'Barlow Condensed',sans-serif;min-width:42px;max-width:50px;transition:filter .08s;user-select:none;touch-action:none;}
 td.cd:hover{filter:brightness(.85);}
 td.cd.wk{background:rgba(160,20,20,.10);}
 td.cd.hc{box-shadow:inset 2px 0 0 var(--amari),inset -2px 0 0 var(--amari);}
 td.cd.drag-sel{outline:2px solid var(--azul3);outline-offset:-2px;opacity:.85;}
-.c-A{background:#c0111f!important;color:#fff}.c-AF{background:#943500!important;color:#fff}
-.c-AREAS{background:#0d5c2a!important;color:#fff}.c-GVN{background:#0a1628!important;color:#fff}
-.c-TSART{background:#0d4b8a!important;color:#fff}.c-TSARM{background:#1563a8!important;color:#fff}
-.c-POV{background:#1a7a3c!important;color:#fff}.c-L{background:#7ec870!important;color:#0d3d18}
-.c-AP{background:#d4920a!important;color:#fff}.c-BAJA{background:#5a6a7a!important;color:#fff}
-.c-TMAE{background:#b05000!important;color:#fff}.c-NRF{background:#181828!important;color:#fff}
-.c-CURSO{background:#7040a8!important;color:#fff}.c-MARCH{background:#2c6b3a!important;color:#fff}
+
+
+
+
+
+
+
 
 /* PICKER */
 .picker{position:fixed;background:var(--surface);border-radius:10px;box-shadow:var(--shadow-lg);border:1px solid var(--border);padding:12px;z-index:1000;display:none;width:288px;}
@@ -269,7 +269,9 @@ input.date-inline{border:1px solid var(--azul2);border-radius:4px;padding:2px 7p
   .mob-bar{display:flex;}.bot-nav{display:flex;}
   .topbar{display:none;}.content{padding:13px 11px 18px;}
   .cards{grid-template-columns:1fr 1fr;gap:10px;}.ph-title{font-size:22px;}
-  td.cn{min-width:85px;font-size:10px;padding-left:8px;}td.cd{min-width:22px;}
+  td.cn{min-width:100px;font-size:12px;padding-left:10px;}
+  td.cd{min-width:44px;max-width:52px;font-size:12px;height:40px;}
+  table.cq td{height:40px;}
   .form-2col{grid-template-columns:1fr;}.dash-grid{grid-template-columns:1fr!important;}
 }
 @media(min-width:801px){.mob-bar,.bot-nav{display:none!important;}}
@@ -380,6 +382,12 @@ input.date-inline{border:1px solid var(--azul2);border-radius:4px;padding:2px 7p
       <div class="ph-title">Cuadrante <span id="cq-title">—</span></div>
       <div class="ph-sub">Clic para asignar · <strong>Arrastra</strong> para selección múltiple
         <button class="btn btn-ghost btn-sm editor-only" onclick="openCopyMonthModal()" style="margin-left:6px">📋 Copiar mes</button>
+      </div>
+      <!-- Mobile week navigator (hidden on desktop) -->
+      <div id="week-nav" style="display:none;align-items:center;gap:8px;margin-top:8px">
+        <button class="btn btn-ghost btn-sm" onclick="changeWeek(-1)">◀</button>
+        <span id="week-label" style="font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;color:var(--text)">Semana 1</span>
+        <button class="btn btn-ghost btn-sm" onclick="changeWeek(1)">▶</button>
       </div>
     </div>
     <div class="month-sw">
@@ -634,7 +642,7 @@ const sb=supabase.createClient(SB_URL,SB_KEY);
 // ── State ──────────────────────────────────────────────
 let PERSONAL=[],MESES=[],ACTDB=[],CADDB=[];
 let curMesId=null,curY=2026,curM=5;
-let selCells=[],_dragActive=false,_dragPid=null,_dragStartKey=null,_pickerJustOpened=false,_pendingColor=null;
+let selCells=[],_dragActive=false,_dragPid=null,_dragStartKey=null,_pickerJustOpened=false,_pendingColor=null,_mobileWeek=0;
 let persFilter='activos',curView='dashboard',isEditor=false,_viewerOriginMesId=null;
 let expandedYears=new Set();
 const today=new Date();
@@ -878,12 +886,12 @@ function renderSidebarMonths(){
   document.getElementById('sb-months').innerHTML=h;
 }
 function toggleYear(yr){if(expandedYears.has(yr))expandedYears.delete(yr);else expandedYears.add(yr);renderSidebarMonths();}
-function gotoMonth(id,y,m){curMesId=id;curY=y;curM=m;showView('cuadrante');}
+function gotoMonth(id,y,m){curMesId=id;curY=y;curM=m;_mobileWeek=0;showView('cuadrante');}
 
 // ── Cuadrante ──────────────────────────────────────────
 function renderCuadrante(){
   PERSONAL.sort((a,b)=>(EO[a.empleo]||99)-(EO[b.empleo]||99));
-  const days=daysIn(curY,curM);
+  const totalDays=daysIn(curY,curM);
   const active=PERSONAL.filter(p=>p.estado==='ACTIVO');
   const tbl=document.getElementById('cq');
   const label=`${MN[curM].toUpperCase()} ${curY}`;
@@ -893,11 +901,34 @@ function renderCuadrante(){
   document.getElementById('mob-sub').textContent=`${MN[curM]} ${curY}`;
   renderSidebarMonths();
 
-  let h1=`<tr class="rh"><th class="hn">NOMBRE</th><th class="he">EMPLEO</th><th class="he">CAP.</th>`;
-  for(let d=1;d<=days;d++)h1+=`<th>${d}</th>`;
+  // Detect mobile (≤800px) → weekly view
+  const isMobile = window.innerWidth <= 800;
+  const weekNav  = document.getElementById('week-nav');
+
+  let startDay, endDay, days;
+  if(isMobile){
+    // Weekly view: show 7 days at a time
+    // Clamp _mobileWeek so we don't go past end of month
+    const totalWeeks = Math.ceil(totalDays / 7);
+    _mobileWeek = Math.max(0, Math.min(_mobileWeek, totalWeeks - 1));
+    startDay = _mobileWeek * 7 + 1;
+    endDay   = Math.min(startDay + 6, totalDays);
+    days     = endDay - startDay + 1;
+    if(weekNav){
+      weekNav.style.display='flex';
+      document.getElementById('week-label').textContent=
+        `Semana ${_mobileWeek+1} · Días ${startDay}–${endDay}`;
+    }
+  } else {
+    startDay = 1; endDay = totalDays; days = totalDays;
+    if(weekNav) weekNav.style.display='none';
+  }
+
+  let h1=`<tr class="rh"><th class="hn">NOMBRE</th><th class="he">EMP.</th><th class="he">CAP.</th>`;
+  for(let d=startDay;d<=endDay;d++)h1+=`<th>${d}</th>`;
   h1+=`</tr>`;
   let h2=`<tr class="rd"><th class="hn"></th><th class="he"></th><th class="he"></th>`;
-  for(let d=1;d<=days;d++){
+  for(let d=startDay;d<=endDay;d++){
     const wk=isWk(curY,curM,d),td=isTd(curY,curM,d);
     h2+=`<th class="dl${wk?' wk':''}${td?' hoy':''}">${DW[dow(curY,curM,d)]}</th>`;
   }
@@ -911,7 +942,7 @@ function renderCuadrante(){
       <td class="cn">${p.nombre}</td>
       <td class="ce">${p.empleo}</td>
       <td class="cc"><span class="${cc}">${p.capacidad}</span></td>`;
-    for(let d=1;d<=days;d++){
+    for(let d=startDay;d<=endDay;d++){
       const wk=isWk(curY,curM,d),td=isTd(curY,curM,d);
       const act=ACTDB.find(a=>a.persona_id===p.id&&a.mes_id===curMesId&&a.dia===d);
       const code=act?.codigo||'';
@@ -1440,6 +1471,13 @@ function renderCurrentView(){
   else if(curView==='caducidades')renderCaducidades();
   else if(curView==='actividad')renderActividad();
 }
+function changeWeek(dir){
+  const totalDays=daysIn(curY,curM);
+  const totalWeeks=Math.ceil(totalDays/7);
+  _mobileWeek=Math.max(0,Math.min(_mobileWeek+dir,totalWeeks-1));
+  renderCuadrante();
+}
+
 function changeMonth(dir){
   const idx=MESES.findIndex(x=>x.id===curMesId);
   const next=MESES[idx+dir];
@@ -1451,7 +1489,7 @@ function changeMonth(dir){
       showToast('Solo puedes ver el mes anterior, actual y siguiente');return;
     }
   }
-  curMesId=next.id;curY=next.anio;curM=next.mes;
+  curMesId=next.id;curY=next.anio;curM=next.mes;_mobileWeek=0;
   renderCuadrante();renderSidebarMonths();
 }
 function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');document.getElementById('overlay').classList.toggle('open');}
