@@ -152,7 +152,8 @@ table.cq thead tr.rd th{background:#001830;color:#446;font-family:'Barlow Conden
 
 table.cq thead tr.rd th.hn,table.cq thead tr.rd th.he{background:#001428;}
 [data-theme="dark"] table.cq thead tr.rd th.hn,[data-theme="dark"] table.cq thead tr.rd th.he{background:#000810;}
-th.dl.wk{background:#3a1010!important;color:#c06060;}
+th.dl.wk{background:#4a3000!important;color:#f5c400!important;font-weight:800;}
+th.rh-wk{background:#2a1800!important;color:#f5c400!important;}
 th.dl.hoy{background:var(--amari)!important;color:#111!important;font-weight:800;}
 table.cq tbody tr:nth-child(odd) td{background:var(--row-odd);}
 table.cq tbody tr:nth-child(even) td{background:var(--row-even);}
@@ -163,7 +164,7 @@ td.ce{padding:0 5px;font-size:10px;font-weight:700;color:var(--text3);text-align
 td.cc{padding:0 4px;font-size:10px;font-weight:700;text-align:center;}
 td.cd{text-align:center;cursor:pointer;font-size:11px;font-weight:800;letter-spacing:.3px;font-family:'Barlow Condensed',sans-serif;min-width:42px;max-width:50px;transition:filter .08s;user-select:none;touch-action:none;}
 td.cd:hover{filter:brightness(.85);}
-td.cd.wk{background:rgba(160,20,20,.10);}
+td.cd.wk{background:rgba(180,120,0,.13);}
 td.cd.hc{box-shadow:inset 2px 0 0 var(--amari),inset -2px 0 0 var(--amari);}
 td.cd.drag-sel{outline:2px solid var(--azul3);outline-offset:-2px;opacity:.85;}
 
@@ -925,7 +926,10 @@ function renderCuadrante(){
   }
 
   let h1=`<tr class="rh"><th class="hn">NOMBRE</th><th class="he">EMP.</th><th class="he">CAP.</th>`;
-  for(let d=startDay;d<=endDay;d++)h1+=`<th>${d}</th>`;
+  for(let d=startDay;d<=endDay;d++){
+    const wkH=isWk(curY,curM,d);
+    h1+=`<th class="${wkH?'rh-wk':''}">${d}</th>`;
+  }
   h1+=`</tr>`;
   let h2=`<tr class="rd"><th class="hn"></th><th class="he"></th><th class="he"></th>`;
   for(let d=startDay;d<=endDay;d++){
