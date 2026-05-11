@@ -460,11 +460,11 @@ input.date-inline{border:1px solid var(--azul2);border-radius:4px;padding:2px 7p
   <div style="margin-bottom:8px;display:flex;align-items:center;gap:8px">
     <label style="font-size:11px;color:var(--text3);white-space:nowrap">🎨 Color:</label>
     <input type="color" id="picker-color-custom" value="#888888"
-      onclick="event.stopPropagation()"
-      oninput="event.stopPropagation();setPendingColor(this.value)"
+     
+      oninput="setPendingColor(this.value)"
       style="width:32px;height:28px;border:1px solid var(--border);border-radius:4px;cursor:pointer;padding:1px;background:var(--input-bg)">
     <span id="picker-color-preview" style="font-size:10px;color:var(--text3)">Sin color personalizado</span>
-    <button onclick="event.stopPropagation();clearPendingColor()"
+    <button onclick="clearPendingColor()"
       style="margin-left:auto;font-size:10px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--text3)">
       ✕ Quitar
     </button>
@@ -1111,8 +1111,14 @@ async function clearSelection(){
   selCells=[];renderCuadrante();
 }
 
-document.addEventListener('click',e=>{
+// Track mousedown inside picker to prevent closing on click
+let _mouseDownInPicker = false;
+document.addEventListener('mousedown', e=>{
+  _mouseDownInPicker = !!e.target.closest('.picker');
+});
+document.addEventListener('click', e=>{
   if(_pickerJustOpened){_pickerJustOpened=false;return;}
+  if(_mouseDownInPicker){_mouseDownInPicker=false;return;}
   if(!e.target.closest('.picker')){
     document.getElementById('picker').classList.remove('open');
     document.querySelectorAll('td.cd.drag-sel').forEach(t=>t.classList.remove('drag-sel'));
