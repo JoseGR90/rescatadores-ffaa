@@ -145,8 +145,10 @@ table.cq{width:100%;border-collapse:collapse;font-size:11px;}
 table.cq thead tr.rh th{background:var(--th-bg);color:#fff;font-family:'Rajdhani',sans-serif;font-size:11.5px;font-weight:700;letter-spacing:1px;padding:9px 5px;text-align:center;white-space:nowrap;position:sticky;top:var(--topbar);z-index:15;}
 table.cq thead tr.rh th.hn{text-align:left;padding-left:14px;min-width:130px;}
 table.cq thead tr.rh th.he{min-width:54px;}
-table.cq thead tr.rd th{background:#001830;color:#446;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;padding:4px 2px;text-align:center;position:sticky;top:calc(var(--topbar) + 34px);z-index:14;min-width:28px;}
+table.cq thead tr.rd th{background:#001830;color:#446;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;padding:4px 2px;text-align:center;min-width:28px;}
 [data-theme="dark"] table.cq thead tr.rd th{background:#000c18;}
+[data-theme="dark"] table.cq thead tr.rd th.hn,
+[data-theme="dark"] table.cq thead tr.rd th.he{background:#000810;}
 table.cq thead tr.rd th.hn,table.cq thead tr.rd th.he{background:#001428;}
 [data-theme="dark"] table.cq thead tr.rd th.hn,[data-theme="dark"] table.cq thead tr.rd th.he{background:#000810;}
 th.dl.wk{background:#111c2a!important;color:#334;}
@@ -324,7 +326,7 @@ input.date-inline{border:1px solid var(--azul2);border-radius:4px;padding:2px 7p
   <div class="sb-item editor-only" id="si-add" onclick="openModal('add-person')"><span class="ico">➕</span>Añadir Persona</div>
   <div class="sb-item editor-only" onclick="openModal('baja-person')"><span class="ico">🔴</span>Dar de Baja</div>
   <div class="sb-item editor-only" onclick="openModal('reactivar')"><span class="ico">🟢</span>Reactivar Persona</div>
-  <div class="sb-item" onclick="window.print()"><span class="ico">📄</span>Imprimir / PDF</div>
+
   <div class="sb-item" onclick="doLogout()"><span class="ico">🚪</span>Cerrar Sesión</div>
 </div>
 <div class="sb-footer">
@@ -344,7 +346,7 @@ input.date-inline{border:1px solid var(--azul2);border-radius:4px;padding:2px 7p
   </div>
   <div class="topbar-r">
 
-    <button class="btn btn-ghost" onclick="window.print()">📄 PDF</button>
+    
     <button class="btn btn-verde editor-only" onclick="openModal('add-person')">➕ Añadir</button>
     <button class="btn btn-rojo  editor-only" onclick="openModal('baja-person')">🔴 Baja</button>
   </div>
@@ -865,9 +867,7 @@ function renderCuadrante(){
   h2+=`</tr>`;
   tbl.querySelector('thead').innerHTML=h1+h2;
 
-  // Spacer row so first person isn't hidden behind sticky day-name header
-  // rd header is ~22px tall, so we need that much space
-  let body=`<tr><td colspan="${3+days}" style="padding:0;border:none;height:22px;background:transparent;pointer-events:none"></td></tr>`;
+  let body='';
   active.forEach(p=>{
     const cc=capCls(p.capacidad);
     let row=`<tr>
