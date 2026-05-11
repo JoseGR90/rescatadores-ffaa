@@ -876,7 +876,6 @@ function renderCuadrante(){
       const ci=CODES.find(c=>c.code===code);
       const st=ci?`style="background:${ci.bg};color:${ci.fg}"`:'';
       row+=`<td class="cd${wk?' wk':''}${td?' hc':''}" ${st}
-        onclick="cellClick(event,${p.id},${d})"
         data-pid="${p.id}" data-day="${d}">${code}</td>`;
     }
     row+=`</tr>`;body+=row;
@@ -890,17 +889,20 @@ function renderCuadrante(){
 
 // ── Drag (pointer capture delegation) ─────────────────
 function attachDrag(tbl){
-  if(tbl._drag)return; tbl._drag=true;
+  if(tbl._drag)return;
+  tbl._drag=true;
+
+  let startX=0,startY=0;
 
   tbl.addEventListener('pointerdown',e=>{
     if(!isEditor)return;
     const td=e.target.closest('td.cd');
     if(!td)return;
-    // NO preventDefault here - we need click events to fire for single taps
-    tbl.setPointerCapture(e.pointerId);
+    e.preventDefault(); // prevent text selection while dragging
     _dragActive=false;
     _dragPid=parseInt(td.dataset.pid);
     _dragStartKey=`${td.dataset.pid}-${td.dataset.day}`;
+    startX=e.clientX; startY=e.clientY;
     selCells=[];
     document.querySelectorAll('td.cd.drag-sel').forEach(t=>t.classList.remove('drag-sel'));
     addSel(td);
@@ -908,29 +910,52 @@ function attachDrag(tbl){
 
   tbl.addEventListener('pointermove',e=>{
     if(_dragPid===null||e.buttons===0)return;
-    // Only activate drag if we move to a DIFFERENT cell
-    const els=document.elementsFromPoint(e.clientX,e.clientY);
-    const td=els.find(el=>el.matches&&el.matches('td.cd'));
+    // Need 8px movement to activate drag mode
+    if(Math.abs(e.clientX-startX)+Math.abs(e.clientY-startY)<8)return;
+    const el=document.elementFromPoint(e.clientX,e.clientY);
+    const td=el?.closest('td.cd');
     if(!td||parseInt(td.dataset.pid)!==_dragPid)return;
-    const key=`${td.dataset.pid}-${td.dataset.day}`;
-    if(key===_dragStartKey&&selCells.length<=1)return; // still on start cell
     _dragActive=true;
     addSel(td);
   });
 
   tbl.addEventListener('pointerup',e=>{
-    tbl.releasePointerCapture(e.pointerId);
     if(_dragPid===null)return;
+    const startKey=_dragStartKey;
     const wasDrag=_dragActive&&selCells.length>1;
     _dragPid=null; _dragActive=false;
+
     if(wasDrag){
+      // Multi-cell drag → open multi picker
       openPickerMulti();
+    } else {
+      // Single tap → open single-cell picker
+      const[spid,sday]=startKey.split('-').map(Number);
+      const p=PERSONAL.find(x=>x.id===spid);
+      document.querySelectorAll('td.cd.drag-sel').forEach(t=>t.classList.remove('drag-sel'));
+      selCells=[startKey];
+      document.getElementById('picker-who').innerHTML=
+        `<strong>${p?.nombre||''}</strong> · Día ${sday} de ${MN[curM]}`;
+      document.getElementById('picker-multi').classList.remove('show');
+      buildPickerGrid();
+      // Position picker near the tapped cell
+      const cell=document.querySelector(`td[data-pid="${spid}"][data-day="${sday}"]`);
+      if(cell){
+        const r=cell.getBoundingClientRect();
+        let left=r.left+window.scrollX;
+        let top=r.bottom+window.scrollY+4;
+        if(left+288>window.innerWidth-12)left=window.innerWidth-300;
+        if(top+340>window.innerHeight+window.scrollY)top=r.top+window.scrollY-344;
+        const pk=document.getElementById('picker');
+        pk.style.left=left+'px'; pk.style.top=top+'px';
+      }
+      document.getElementById('picker-custom-input').value='';
+      document.getElementById('picker').classList.add('open');
     }
-    // single click handled by onclick on td
   });
 
   tbl.addEventListener('pointercancel',()=>{
-    _dragPid=null;_dragActive=false;selCells=[];
+    _dragPid=null; _dragActive=false; selCells=[];
     document.querySelectorAll('td.cd.drag-sel').forEach(t=>t.classList.remove('drag-sel'));
   });
 }
@@ -940,48 +965,9 @@ function addSel(td){
   if(!selCells.includes(key)){selCells.push(key);td.classList.add('drag-sel');}
 }
 
-function cellClick(e,pid,day){
-  if(!isEditor){showToast('⚠️ Inicia sesión para editar');return;}
-  // If this was part of a multi-drag selection, ignore (pointerup already handled it)
-  if(selCells.length>1)return;
-  document.querySelectorAll('td.cd.drag-sel').forEach(t=>t.classList.remove('drag-sel'));
-  selCells=[`${pid}-${day}`];
-  const p=PERSONAL.find(x=>x.id===pid);
-  document.getElementById('picker-who').innerHTML=`<strong>${p?.nombre||''}</strong> · Día ${day} de ${MN[curM]}`;
-  document.getElementById('picker-multi').classList.remove('show');
-  buildPickerGrid();positionPicker(e);
-  document.getElementById('picker-custom-input').value='';
-  document.getElementById('picker').classList.add('open');
-}
+// Single-cell opening is now handled directly in pointerup above
+function cellClick(){}
 
-function openPickerMulti(){
-  const days=selCells.map(k=>parseInt(k.split('-')[1])).sort((a,b)=>a-b);
-  const pid=parseInt(selCells[0].split('-')[0]);
-  const p=PERSONAL.find(x=>x.id===pid);
-  document.getElementById('picker-who').innerHTML=`<strong>${p?.nombre||''}</strong>`;
-  const mi=document.getElementById('picker-multi');
-  mi.textContent=`${selCells.length} días seleccionados: ${days.join(', ')}`;
-  mi.classList.add('show');
-  buildPickerGrid();
-  const pk=document.getElementById('picker');
-  pk.style.left=`${window.innerWidth/2-144}px`;
-  pk.style.top=`${window.scrollY+80}px`;
-  document.getElementById('picker-custom-input').value='';
-  pk.classList.add('open');
-}
-
-function buildPickerGrid(){
-  document.getElementById('picker-grid').innerHTML=CODES.map(c=>
-    `<button class="pb" style="background:${c.bg};color:${c.fg}" onclick="applyCode('${c.code}')">${c.code}</button>`).join('');
-}
-function positionPicker(e){
-  const r=e.target.getBoundingClientRect();
-  let left=r.left+window.scrollX,top=r.bottom+window.scrollY+4;
-  if(left+288>window.innerWidth-12)left=window.innerWidth-300;
-  if(top+320>window.innerHeight+window.scrollY)top=r.top+window.scrollY-324;
-  const pk=document.getElementById('picker');
-  pk.style.left=left+'px';pk.style.top=top+'px';
-}
 
 async function applyCustomCode(){
   const input = document.getElementById('picker-custom-input');
