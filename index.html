@@ -183,9 +183,6 @@ td.cd.drag-sel{outline:2px solid var(--azul3);outline-offset:-2px;opacity:.85;}
 .picker-multi{font-size:11px;color:var(--azul2);background:rgba(0,63,138,.07);border:1px solid rgba(0,63,138,.2);padding:4px 8px;border-radius:4px;margin-bottom:8px;font-weight:600;display:none;}
 .picker-multi.show{display:block;}
 .picker-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:8px;}
-.color-dot{width:22px;height:22px;border-radius:4px;border:2px solid transparent;cursor:pointer;transition:transform .1s,border-color .1s;flex-shrink:0;}
-.color-dot:hover{transform:scale(1.15);}
-.color-dot.selected{border-color:var(--text);}
 .pb{padding:8px 3px;border-radius:4px;border:none;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;text-align:center;transition:transform .08s,filter .08s;}
 #picker-custom-input:focus{border-color:var(--azul2);box-shadow:0 0 0 2px rgba(0,63,138,.12);}
 .pb:hover{transform:scale(1.07);filter:brightness(.88);}
@@ -460,18 +457,17 @@ input.date-inline{border:1px solid var(--azul2);border-radius:4px;padding:2px 7p
   <div class="picker-who" id="picker-who"></div>
   <div class="picker-multi" id="picker-multi"></div>
   <div class="picker-grid" id="picker-grid"></div>
-  <div style="margin-bottom:8px">
-    <div style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Color de fondo personalizado</div>
-    <div id="picker-colors" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:5px"></div>
-    <div style="display:flex;align-items:center;gap:6px">
-      <input type="color" id="picker-color-custom" value="#888888" onclick="event.stopPropagation()"
-        style="width:28px;height:28px;border:1px solid var(--border);border-radius:4px;cursor:pointer;padding:1px;background:var(--input-bg)">
-      <span style="font-size:11px;color:var(--text3)">Color libre</span>
-      <button onclick="event.stopPropagation();clearPendingColor()" id="picker-color-clear"
-        style="margin-left:auto;font-size:10px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--text3)">
-        ✕ Sin color
-      </button>
-    </div>
+  <div style="margin-bottom:8px;display:flex;align-items:center;gap:8px">
+    <label style="font-size:11px;color:var(--text3);white-space:nowrap">🎨 Color:</label>
+    <input type="color" id="picker-color-custom" value="#888888"
+      onclick="event.stopPropagation()"
+      oninput="event.stopPropagation();setPendingColor(this.value)"
+      style="width:32px;height:28px;border:1px solid var(--border);border-radius:4px;cursor:pointer;padding:1px;background:var(--input-bg)">
+    <span id="picker-color-preview" style="font-size:10px;color:var(--text3)">Sin color personalizado</span>
+    <button onclick="event.stopPropagation();clearPendingColor()"
+      style="margin-left:auto;font-size:10px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--text3)">
+      ✕ Quitar
+    </button>
   </div>
   <div id="picker-custom-row" style="display:flex;gap:5px;margin-bottom:8px">
     <input type="text" id="picker-custom-input"
@@ -1011,7 +1007,7 @@ function attachDrag(tbl){
       }
       document.getElementById('picker-custom-input').value='';
       _pendingColor=null;
-      buildColorPalette();
+      clearPendingColor();
       _pickerJustOpened=true;
       document.getElementById('picker').classList.add('open');
     }
@@ -1030,44 +1026,20 @@ function addSel(td){
 
 
 
-// Preset colors for the palette
-const COLOR_PALETTE = [
-  '#e74c3c','#e67e22','#f1c40f','#2ecc71','#1abc9c',
-  '#3498db','#9b59b6','#e91e63','#ff5722','#795548',
-  '#607d8b','#000000','#ffffff','#ff80ab','#80d8ff',
-];
 
-function buildColorPalette(){
-  const el = document.getElementById('picker-colors');
-  if(!el) return;
-  el.innerHTML = COLOR_PALETTE.map(c => {
-    const sel = _pendingColor===c ? ' selected' : '';
-    return `<div class="color-dot${sel}" style="background:${c}"
-      onclick="event.stopPropagation();setPendingColor('${c}')" title="${c}"></div>`;
-  }).join('');
-  // Sync custom color input
-  const inp = document.getElementById('picker-color-custom');
-  if(inp && _pendingColor && !COLOR_PALETTE.includes(_pendingColor)) inp.value = _pendingColor;
-  // Custom color input listener (add once)
-  if(inp && !inp._colorSet){
-    inp._colorSet = true;
-    inp.addEventListener('input', ()=>setPendingColor(inp.value));
-  }
-}
 
 function setPendingColor(color){
   _pendingColor = color;
-  buildColorPalette();
-  // Show preview on selected color dot
-  document.querySelectorAll('.color-dot').forEach(d=>{
-    d.classList.toggle('selected', d.style.background===color || d.style.backgroundColor===color);
-  });
+  const preview = document.getElementById('picker-color-preview');
+  if(preview) preview.innerHTML = `<span style="background:${color};color:#fff;padding:1px 6px;border-radius:3px;font-size:10px">${color}</span>`;
 }
 
 function clearPendingColor(){
   _pendingColor = null;
-  buildColorPalette();
-  document.querySelectorAll('.color-dot').forEach(d=>d.classList.remove('selected'));
+  const preview = document.getElementById('picker-color-preview');
+  if(preview) preview.textContent = 'Sin color personalizado';
+  const inp = document.getElementById('picker-color-custom');
+  if(inp) inp.value = '#888888';
 }
 
 function buildPickerGrid(){
@@ -1093,7 +1065,7 @@ function openPickerMulti(){
   pk.style.top  = `80px`;
   document.getElementById('picker-custom-input').value = '';
   _pendingColor=null;
-  buildColorPalette();
+  clearPendingColor();
   pk.classList.add('open');
 }
 
