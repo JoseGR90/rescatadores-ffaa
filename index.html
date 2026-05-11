@@ -57,8 +57,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--text);min-
 .sb-month.active{background:var(--azul2);color:#fff;font-weight:700;}
 .sb-month.hidden-month{opacity:.4;}
 .sb-month .yr{font-size:9px;background:rgba(255,255,255,.1);padding:1px 5px;border-radius:3px;flex-shrink:0;}
-.vis-btn{background:none;border:none;cursor:pointer;font-size:11px;padding:1px 3px;opacity:.5;flex-shrink:0;}
-.vis-btn:hover{opacity:1;}
+
 .sb-footer{padding:10px 16px;border-top:1px solid rgba(255,255,255,.06);display:flex;align-items:center;justify-content:space-between;}
 .theme-btn{background:none;border:1px solid rgba(255,255,255,.15);border-radius:20px;padding:4px 10px;cursor:pointer;color:#668;font-size:12px;font-family:inherit;display:flex;align-items:center;gap:5px;}
 .theme-btn:hover{border-color:rgba(255,255,255,.3);color:#fff;}
@@ -149,9 +148,11 @@ table.cq thead tr.rd th{background:#001830;color:#446;font-family:'Barlow Conden
 [data-theme="dark"] table.cq thead tr.rd th{background:#000c18;}
 [data-theme="dark"] table.cq thead tr.rd th.hn,
 [data-theme="dark"] table.cq thead tr.rd th.he{background:#000810;}
+[data-theme="dark"] th.dl.wk{background:#2a0808!important;color:#a04040;}
+[data-theme="dark"] td.cd.wk{background:rgba(180,30,30,.12)!important;}
 table.cq thead tr.rd th.hn,table.cq thead tr.rd th.he{background:#001428;}
 [data-theme="dark"] table.cq thead tr.rd th.hn,[data-theme="dark"] table.cq thead tr.rd th.he{background:#000810;}
-th.dl.wk{background:#111c2a!important;color:#334;}
+th.dl.wk{background:#3a1010!important;color:#c06060;}
 th.dl.hoy{background:var(--amari)!important;color:#111!important;font-weight:800;}
 table.cq tbody tr:nth-child(odd) td{background:var(--row-odd);}
 table.cq tbody tr:nth-child(even) td{background:var(--row-even);}
@@ -162,7 +163,7 @@ td.ce{padding:0 5px;font-size:10px;font-weight:700;color:var(--text3);text-align
 td.cc{padding:0 4px;font-size:10px;font-weight:700;text-align:center;}
 td.cd{text-align:center;cursor:pointer;font-size:9px;font-weight:800;letter-spacing:.3px;font-family:'Barlow Condensed',sans-serif;min-width:28px;max-width:34px;transition:filter .08s;user-select:none;touch-action:none;}
 td.cd:hover{filter:brightness(.85);}
-td.cd.wk{background:rgba(0,24,56,.04)!important;}
+td.cd.wk{background:rgba(160,20,20,.10)!important;}
 td.cd.hc{box-shadow:inset 2px 0 0 var(--amari),inset -2px 0 0 var(--amari);}
 td.cd.drag-sel{outline:2px solid var(--azul3);outline-offset:-2px;opacity:.85;}
 .c-A{background:#c0111f!important;color:#fff}.c-AF{background:#943500!important;color:#fff}
@@ -619,7 +620,7 @@ const sb=supabase.createClient(SB_URL,SB_KEY);
 let PERSONAL=[],MESES=[],ACTDB=[],CADDB=[];
 let curMesId=null,curY=2026,curM=5;
 let selCells=[],_dragActive=false,_dragPid=null,_dragStartKey=null,_pickerJustOpened=false;
-let persFilter='todos',curView='dashboard',isEditor=false;
+let persFilter='activos',curView='dashboard',isEditor=false,_viewerOriginMesId=null;
 let expandedYears=new Set();
 const today=new Date();
 const MN=['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -800,33 +801,60 @@ async function loadAll(){
     sb.from('actividad').select('*'),
   ]);
   PERSONAL=p.data||[];MESES=m.data||[];CADDB=c.data||[];ACTDB=a.data||[];
-  if(MESES.length){const l=MESES[MESES.length-1];curMesId=l.id;curY=l.anio;curM=l.mes;}
+  if(MESES.length){
+    // Set to closest month to today
+    const now=new Date();
+    const nowKey=now.getFullYear()*100+(now.getMonth()+1);
+    let best=MESES[MESES.length-1];
+    let bestDiff=Infinity;
+    MESES.forEach(m=>{
+      const diff=Math.abs(m.anio*100+m.mes - nowKey);
+      if(diff<bestDiff){bestDiff=diff;best=m;}
+    });
+    curMesId=best.id;curY=best.anio;curM=best.mes;
+    _viewerOriginMesId=best.id; // viewers can only navigate ±1 from here
+  }
   renderSidebarMonths();renderCurrentView();
 }
 
 // ── Sidebar months ─────────────────────────────────────
 function renderSidebarMonths(){
   const years=[...new Set(MESES.map(m=>m.anio))].sort((a,b)=>b-a);
-  if(curY)expandedYears.add(curY);
-  if(!expandedYears.size&&years.length)expandedYears.add(years[0]);
+  if(curY) expandedYears.add(curY);
+  if(!expandedYears.size&&years.length) expandedYears.add(years[0]);
+
+  // For viewers: only show current month ±1
+  let viewerMonths = null;
+  if(!isEditor){
+    const curIdx = MESES.findIndex(m=>m.id===curMesId);
+    const allowed = new Set();
+    if(curIdx >= 0){
+      [curIdx-1, curIdx, curIdx+1].forEach(i=>{
+        if(i>=0 && i<MESES.length) allowed.add(MESES[i].id);
+      });
+    } else if(MESES.length){
+      // fallback: last 3 months
+      MESES.slice(-3).forEach(m=>allowed.add(m.id));
+    }
+    viewerMonths = allowed;
+  }
+
   let h='';
   years.forEach(yr=>{
     const open=expandedYears.has(yr);
     const allMonths=MESES.filter(m=>m.anio===yr);
-    const visible=isEditor?allMonths:allMonths.filter(m=>m.visible!==false);
-    if(!isEditor&&!visible.length)return;
+    const shownMonths=isEditor ? allMonths : allMonths.filter(m=>viewerMonths.has(m.id));
+    if(!shownMonths.length) return;
     const hasAct=allMonths.some(m=>m.id===curMesId&&curView==='cuadrante');
     h+=`<div class="sb-yr${hasAct?' has-active':''}" onclick="toggleYear(${yr})">
       <span>${yr}</span><span style="font-size:9px;opacity:.5">${open?'▲':'▼'}</span>
     </div>`;
     if(open){
-      (isEditor?allMonths:visible).forEach(mo=>{
-        const hidden=mo.visible===false;
+      shownMonths.forEach(mo=>{
         const active=mo.id===curMesId&&curView==='cuadrante';
-        h+=`<div class="sb-month${active?' active':''}${hidden?' hidden-month':''}"
-          onclick="gotoMonth(${mo.id},${mo.anio},${mo.mes})" style="${hidden?'opacity:.4':''}">
+        h+=`<div class="sb-month${active?' active':''}"
+          onclick="gotoMonth(${mo.id},${mo.anio},${mo.mes})">
           <span>${mo.nombre}<span class="yr">${String(mo.anio).slice(-2)}</span></span>
-          ${isEditor?`<button class="vis-btn" onclick="toggleVis(event,${mo.id},${hidden})" title="${hidden?'Mostrar':'Ocultar'}">${hidden?'👁️':'🙈'}</button>`:''}
         </div>`;
       });
     }
@@ -835,14 +863,6 @@ function renderSidebarMonths(){
 }
 function toggleYear(yr){if(expandedYears.has(yr))expandedYears.delete(yr);else expandedYears.add(yr);renderSidebarMonths();}
 function gotoMonth(id,y,m){curMesId=id;curY=y;curM=m;showView('cuadrante');}
-async function toggleVis(e,id,makeVisible){
-  e.stopPropagation();
-  const{error}=await sb.from('meses').update({visible:makeVisible}).eq('id',id);
-  if(error){showToast('❌ '+error.message);return;}
-  const m=MESES.find(x=>x.id===id);if(m)m.visible=makeVisible;
-  renderSidebarMonths();
-  showToast(makeVisible?'👁️ Mes visible para todos':'🙈 Mes oculto para visualizadores');
-}
 
 // ── Cuadrante ──────────────────────────────────────────
 function renderCuadrante(){
@@ -1382,8 +1402,16 @@ function renderCurrentView(){
 function changeMonth(dir){
   const idx=MESES.findIndex(x=>x.id===curMesId);
   const next=MESES[idx+dir];
-  if(next){curMesId=next.id;curY=next.anio;curM=next.mes;renderCuadrante();renderSidebarMonths();}
-  else showToast(dir>0?'No hay más meses. Usa "Nuevo Mes".':'Ya estás en el primer mes.');
+  if(!next){showToast(dir>0?'No hay más meses.':'Ya estás en el primer mes.');return;}
+  if(!isEditor){
+    const targetIdx=idx+dir;
+    const originIdx=MESES.findIndex(m=>m.id===_viewerOriginMesId);
+    if(Math.abs(targetIdx-originIdx)>1){
+      showToast('Solo puedes ver el mes anterior, actual y siguiente');return;
+    }
+  }
+  curMesId=next.id;curY=next.anio;curM=next.mes;
+  renderCuadrante();renderSidebarMonths();
 }
 function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');document.getElementById('overlay').classList.toggle('open');}
 function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('overlay').classList.remove('open');}
