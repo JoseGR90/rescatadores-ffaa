@@ -464,10 +464,10 @@ input.date-inline{border:1px solid var(--azul2);border-radius:4px;padding:2px 7p
     <div style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Color de fondo personalizado</div>
     <div id="picker-colors" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:5px"></div>
     <div style="display:flex;align-items:center;gap:6px">
-      <input type="color" id="picker-color-custom" value="#888888"
+      <input type="color" id="picker-color-custom" value="#888888" onclick="event.stopPropagation()"
         style="width:28px;height:28px;border:1px solid var(--border);border-radius:4px;cursor:pointer;padding:1px;background:var(--input-bg)">
       <span style="font-size:11px;color:var(--text3)">Color libre</span>
-      <button onclick="clearPendingColor()" id="picker-color-clear"
+      <button onclick="event.stopPropagation();clearPendingColor()" id="picker-color-clear"
         style="margin-left:auto;font-size:10px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--text3)">
         ✕ Sin color
       </button>
@@ -1043,7 +1043,7 @@ function buildColorPalette(){
   el.innerHTML = COLOR_PALETTE.map(c => {
     const sel = _pendingColor===c ? ' selected' : '';
     return `<div class="color-dot${sel}" style="background:${c}"
-      onclick="setPendingColor('${c}')" title="${c}"></div>`;
+      onclick="event.stopPropagation();setPendingColor('${c}')" title="${c}"></div>`;
   }).join('');
   // Sync custom color input
   const inp = document.getElementById('picker-color-custom');
