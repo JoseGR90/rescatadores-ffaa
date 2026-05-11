@@ -183,6 +183,9 @@ td.cd.drag-sel{outline:2px solid var(--azul3);outline-offset:-2px;opacity:.85;}
 .picker-multi{font-size:11px;color:var(--azul2);background:rgba(0,63,138,.07);border:1px solid rgba(0,63,138,.2);padding:4px 8px;border-radius:4px;margin-bottom:8px;font-weight:600;display:none;}
 .picker-multi.show{display:block;}
 .picker-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:8px;}
+.color-dot{width:22px;height:22px;border-radius:4px;border:2px solid transparent;cursor:pointer;transition:transform .1s,border-color .1s;flex-shrink:0;}
+.color-dot:hover{transform:scale(1.15);}
+.color-dot.selected{border-color:var(--text);}
 .pb{padding:8px 3px;border-radius:4px;border:none;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;text-align:center;transition:transform .08s,filter .08s;}
 #picker-custom-input:focus{border-color:var(--azul2);box-shadow:0 0 0 2px rgba(0,63,138,.12);}
 .pb:hover{transform:scale(1.07);filter:brightness(.88);}
@@ -457,6 +460,19 @@ input.date-inline{border:1px solid var(--azul2);border-radius:4px;padding:2px 7p
   <div class="picker-who" id="picker-who"></div>
   <div class="picker-multi" id="picker-multi"></div>
   <div class="picker-grid" id="picker-grid"></div>
+  <div style="margin-bottom:8px">
+    <div style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:5px">Color de fondo personalizado</div>
+    <div id="picker-colors" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:5px"></div>
+    <div style="display:flex;align-items:center;gap:6px">
+      <input type="color" id="picker-color-custom" value="#888888"
+        style="width:28px;height:28px;border:1px solid var(--border);border-radius:4px;cursor:pointer;padding:1px;background:var(--input-bg)">
+      <span style="font-size:11px;color:var(--text3)">Color libre</span>
+      <button onclick="clearPendingColor()" id="picker-color-clear"
+        style="margin-left:auto;font-size:10px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;color:var(--text3)">
+        ✕ Sin color
+      </button>
+    </div>
+  </div>
   <div id="picker-custom-row" style="display:flex;gap:5px;margin-bottom:8px">
     <input type="text" id="picker-custom-input"
       placeholder="Actividad personalizada..."
@@ -622,7 +638,7 @@ const sb=supabase.createClient(SB_URL,SB_KEY);
 // ── State ──────────────────────────────────────────────
 let PERSONAL=[],MESES=[],ACTDB=[],CADDB=[];
 let curMesId=null,curY=2026,curM=5;
-let selCells=[],_dragActive=false,_dragPid=null,_dragStartKey=null,_pickerJustOpened=false;
+let selCells=[],_dragActive=false,_dragPid=null,_dragStartKey=null,_pickerJustOpened=false,_pendingColor=null;
 let persFilter='activos',curView='dashboard',isEditor=false,_viewerOriginMesId=null;
 let expandedYears=new Set();
 const today=new Date();
@@ -904,7 +920,17 @@ function renderCuadrante(){
       const act=ACTDB.find(a=>a.persona_id===p.id&&a.mes_id===curMesId&&a.dia===d);
       const code=act?.codigo||'';
       const ci=CODES.find(c=>c.code===code);
-      const st=ci?`style="background:${ci.bg};color:${ci.fg}"`:'';
+      const customColor = act?.color;
+      let st='';
+      if(customColor){
+        // Custom color: use it as background, auto-pick text color for contrast
+        const r=parseInt(customColor.slice(1,3),16),g=parseInt(customColor.slice(3,5),16),b=parseInt(customColor.slice(5,7),16);
+        const lum=(0.299*r+0.587*g+0.114*b)/255;
+        const fg=lum>0.5?'#111':'#fff';
+        st=`style="background:${customColor};color:${fg}"`;
+      } else if(ci){
+        st=`style="background:${ci.bg};color:${ci.fg}"`;
+      }
       row+=`<td class="cd${wk?' wk':''}${td?' hc':''}" ${st}
         data-pid="${p.id}" data-day="${d}">${code}</td>`;
     }
@@ -984,6 +1010,8 @@ function attachDrag(tbl){
         pk.style.left=left+'px'; pk.style.top=top+'px';
       }
       document.getElementById('picker-custom-input').value='';
+      _pendingColor=null;
+      buildColorPalette();
       _pickerJustOpened=true;
       document.getElementById('picker').classList.add('open');
     }
@@ -1001,6 +1029,46 @@ function addSel(td){
 }
 
 
+
+// Preset colors for the palette
+const COLOR_PALETTE = [
+  '#e74c3c','#e67e22','#f1c40f','#2ecc71','#1abc9c',
+  '#3498db','#9b59b6','#e91e63','#ff5722','#795548',
+  '#607d8b','#000000','#ffffff','#ff80ab','#80d8ff',
+];
+
+function buildColorPalette(){
+  const el = document.getElementById('picker-colors');
+  if(!el) return;
+  el.innerHTML = COLOR_PALETTE.map(c => {
+    const sel = _pendingColor===c ? ' selected' : '';
+    return `<div class="color-dot${sel}" style="background:${c}"
+      onclick="setPendingColor('${c}')" title="${c}"></div>`;
+  }).join('');
+  // Sync custom color input
+  const inp = document.getElementById('picker-color-custom');
+  if(inp && _pendingColor && !COLOR_PALETTE.includes(_pendingColor)) inp.value = _pendingColor;
+  // Custom color input listener (add once)
+  if(inp && !inp._colorSet){
+    inp._colorSet = true;
+    inp.addEventListener('input', ()=>setPendingColor(inp.value));
+  }
+}
+
+function setPendingColor(color){
+  _pendingColor = color;
+  buildColorPalette();
+  // Show preview on selected color dot
+  document.querySelectorAll('.color-dot').forEach(d=>{
+    d.classList.toggle('selected', d.style.background===color || d.style.backgroundColor===color);
+  });
+}
+
+function clearPendingColor(){
+  _pendingColor = null;
+  buildColorPalette();
+  document.querySelectorAll('.color-dot').forEach(d=>d.classList.remove('selected'));
+}
 
 function buildPickerGrid(){
   document.getElementById('picker-grid').innerHTML = CODES.map(c =>
@@ -1024,6 +1092,8 @@ function openPickerMulti(){
   pk.style.left = `${Math.max(8, window.innerWidth / 2 - 144)}px`;
   pk.style.top  = `80px`;
   document.getElementById('picker-custom-input').value = '';
+  _pendingColor=null;
+  buildColorPalette();
   pk.classList.add('open');
 }
 
@@ -1040,16 +1110,18 @@ async function applyCode(code){
   document.getElementById('picker').classList.remove('open');
   document.querySelectorAll('td.cd.drag-sel').forEach(t=>t.classList.remove('drag-sel'));
   if(!selCells.length)return;
+  const colorToSave = _pendingColor || null;
   const upserts=selCells.map(key=>{
     const[pid,day]=key.split('-').map(Number);
-    return{persona_id:pid,mes_id:curMesId,dia:day,codigo:code};
+    return{persona_id:pid,mes_id:curMesId,dia:day,codigo:code,color:colorToSave};
   });
   const{error}=await sb.from('actividad').upsert(upserts,{onConflict:'persona_id,mes_id,dia'});
   if(error){showToast('❌ '+error.message);return;}
   upserts.forEach(u=>{
     const idx=ACTDB.findIndex(a=>a.persona_id===u.persona_id&&a.mes_id===u.mes_id&&a.dia===u.dia);
-    if(idx>=0)ACTDB[idx].codigo=code;else ACTDB.push(u);
+    if(idx>=0){ACTDB[idx].codigo=code;ACTDB[idx].color=colorToSave;}else ACTDB.push(u);
   });
+  _pendingColor=null;
   selCells=[];renderCuadrante();
   // refresh caducidades in background (activities may have changed expiry dates)
   if(curView==='caducidades')renderCaducidades();
